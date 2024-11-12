@@ -83,12 +83,14 @@ cloudinary.config(
     cloud_name=CLOUDINARY_NAME,
     api_key=CLOUDINARY_KEY,
     api_secret=CLOUDINARY_SECRET,
+    secure=True 
 )
 
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": CLOUDINARY_NAME,
     "API_SECRET": CLOUDINARY_SECRET,
     "API_KEY": CLOUDINARY_KEY,
+    "SECURE": True 
 }
 
 STORAGES = {
