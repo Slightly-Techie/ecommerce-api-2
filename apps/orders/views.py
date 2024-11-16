@@ -1,7 +1,6 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-
-# from django.urls import reverse
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -36,7 +35,14 @@ class OrderViewSet(ModelViewSet):
             return Response(
                 {"detail": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST
             )
+
         cart_items = CartItem.objects.filter(cart=cart.id).select_related("product")
+
+        shopping_items = cart.items.count()
+        if shopping_items == 0:
+            return Response(
+                {"detail": "Add items to cart"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         total_amount = sum(item.product.price * item.quantity for item in cart_items)
         delivery_cost = 10
@@ -67,11 +73,7 @@ class OrderViewSet(ModelViewSet):
         serializer = self.get_serializer(order)  # noqa
 
         kobo_amount = int(total_cost * 100)
-        # callback_url = request.build_absolute_uri(reverse("payment_verify"))
-        callback_url = request.build_absolute_uri(
-            "http://127.0.0.1:8000/api/order/payment/verify/"
-        )
-        # callback_url = reverse("payment_verify")
+        callback_url = request.build_absolute_uri(reverse("api:order:payment_verify"))
 
         payment_response = PaystackUtils.initialize_transaction(
             amount=kobo_amount,
@@ -128,9 +130,10 @@ class OrderViewSet(ModelViewSet):
                     if user_profile:
                         try:
                             referrer = user_profile.referrer
+                            if referrer:
+                                referrer.profile.update_referral(+5)
+                                referrer.save()
 
-                            referrer.profile.update_referral(+5)
-                            referrer.save()
                         except Profile.DoesNotExist:
                             pass
 

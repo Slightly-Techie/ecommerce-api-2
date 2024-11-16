@@ -142,3 +142,4 @@ env.bak/
 venv.bak/
 management/
 
+staticfiles/

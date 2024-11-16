@@ -64,15 +64,9 @@ class SignUpSerializer(serializers.ModelSerializer):
         # Create User
         user = User.objects.create_user(**validated_data)
 
-        # new
         code, _ = OTPUtils.generate_otp(user)
         email = validated_data.get("email")
         username = validated_data.get("username")
-        send_email_template(
-            email,
-            "d-84ad6c792bf64437bb592b604214806a",
-            {email: {"username": username, "otp": code}},
-        )
 
         # member type data
         if member_type == "ST":
@@ -87,6 +81,12 @@ class SignUpSerializer(serializers.ModelSerializer):
             profile.last_name = member_data["data"]["last_name"]
             profile.phone_number = member_data["data"]["phone_number"]
             profile.save()
+
+        send_email_template(
+            email,
+            "d-84ad6c792bf64437bb592b604214806a",
+            {email: {"username": username, "otp": code}},
+        )
 
         if referral_code:
             try:
@@ -131,7 +131,7 @@ class SignupResponseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "username", "email", "token")
+        fields = ("id", "username", "email", "member_type", "token")
 
     @swagger_serializer_method(
         serializer_or_field=serializers.JSONField(),
