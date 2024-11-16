@@ -6,7 +6,7 @@ from .serializers import TransactionSerializer
 
 
 class Transactions(mixins.ListModelMixin, mixins.RetrieveModelMixin, GenericViewSet):
-    queryset = Transaction.objects.all()
+    queryset = Transaction.objects.all().select_related("user", "order")
     serializer_class = TransactionSerializer
 
     def get_queryset(self):

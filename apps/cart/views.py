@@ -21,7 +21,7 @@ class ShoppingCartViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated:
-            return ShoppingCart.objects.filter(user=self.request.user).prefetch_related(
+            return ShoppingCart.objects.filter(user=self.request.user).select_related(
                 "items__product", "items__product__brand", "items__product__category"
             )
         return ShoppingCart.objects.none()

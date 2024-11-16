@@ -6,7 +6,7 @@ from .serializers import InventorySerializer
 
 
 class InventoryView(ReadOnlyModelViewSet):
-    queryset = Inventory.objects.all()
+    queryset = Inventory.objects.all().select_related("product")
     serializer_class = InventorySerializer
     permission_classes = [IsAdminUser]
 

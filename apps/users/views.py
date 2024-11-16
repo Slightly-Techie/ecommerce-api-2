@@ -54,7 +54,7 @@ class UserView(RetrieveModelMixin, UpdateModelMixin, ListModelMixin, GenericView
     filterset_fields = ["is_active", "deleted"]
     search_fields = [
         "email",
-        "name",
+        "username",
     ]
 
     def get_queryset(self):
@@ -151,7 +151,7 @@ class AddressView(ModelViewSet):
 
 
 class ProfileView(ModelViewSet):
-    queryset = Profile.objects.all().prefetch_related("user", "role")
+    queryset = Profile.objects.all().select_related("user", "role")
     serializer_class = ProfileSerializer
     filterset_fields = ("user", "role")
     parser_classes = (FormParser, MultiPartParser)

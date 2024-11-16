@@ -24,7 +24,7 @@ class ProductCategoryView(ModelViewSet):
 
 
 class ProductView(ModelViewSet):
-    queryset = Product.objects.all().prefetch_related("brand", "category")
+    queryset = Product.objects.all().select_related("brand", "category")
     serializer_class = ProductSerializer
     permission_classes = [AllowAny]
 
@@ -37,7 +37,7 @@ class ProductView(ModelViewSet):
 
 
 class ProductImageView(ModelViewSet):
-    queryset = ProductImage.objects.all().prefetch_related("product")
+    queryset = ProductImage.objects.all().select_related("product")
     serializer_class = ProductImageSerializer
     permission_classes = [AllowAny]
 
@@ -50,7 +50,7 @@ class ProductImageView(ModelViewSet):
 
 
 class FavoriteView(ModelViewSet):
-    queryset = Favorite.objects.all()
+    queryset = Favorite.objects.all().select_related("product", "user")
     serializer_class = FavoriteSerializer
     permission_classes = [IsAuthenticated]
 
