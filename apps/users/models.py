@@ -58,7 +58,7 @@ class User(PermissionsMixin, base_models.BaseModel, AbstractBaseUser):
     is_verified = models.BooleanField(default=False)  # new
     deleted = models.BooleanField(default=False)
     otp_secret = models.CharField(max_length=100, null=True, blank=True)
-    otp_secret_created_at = models.DateTimeField(null=True, blank=True)
+    otp_secret_created = models.DateTimeField(null=True, blank=True)
     member_type = models.CharField(max_length=3, choices=MemberType.choices)
 
     objects = UserManager()

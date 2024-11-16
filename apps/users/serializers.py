@@ -170,8 +170,8 @@ class ForgotPasswordSerializer(serializers.Serializer):
             if user := User.objects.filter(email=email).first():
                 code, token = OTPUtils.generate_otp(user)
                 user.otp_secret = code
-                user.otp_secret_created_at = timezone.now()
-                user.save(update_fields=["otp_secret", "otp_secret_created_at"])
+                user.otp_secret_created = timezone.now()
+                user.save(update_fields=["otp_secret", "otp_secret_created"])
                 send_email_template(
                     email, "d-45557d1b684442b6aef71ae69d50c495", {email: {"code": code}}
                 )
@@ -208,7 +208,7 @@ class ResetPasswordSerializer(serializers.Serializer):
             if not constant_time_compare(user.otp_scret, code):
                 raise serializers.ValidationError("Invalid code")
 
-            if user.otp_secret_created_at  + timezone.timedelta(minutes=5) < timezone.now():
+            if user.otp_secret_created  + timezone.timedelta(minutes=5) < timezone.now():
                 raise serializers.ValidationError("otp code has expired")
 
             validate_password(password, user)
@@ -216,12 +216,12 @@ class ResetPasswordSerializer(serializers.Serializer):
             # If we get here, verification was successful
             user.set_password(raw_password=password)
             user.otp_scret = None
-            user.otp_secret_created_at = None
+            user.otp_secret_created = None
             user.is_verified = True
             user.save(update_fields=[
                 "password",
                 "otp_scret",
-                "otp_secret_created_at",
+                "otp_secret_created",
                 "is_verified"
             ])
 
@@ -230,15 +230,15 @@ class ResetPasswordSerializer(serializers.Serializer):
         except serializers.ValidationError:
             if "user" in locals() and user is not None:
                 user.otp_secret = None
-                user.otp_secret_created_at  = None
-                user.save(update_fields=["otp_scret", "otp_secret_created_at"])
+                user.otp_secret_created  = None
+                user.save(update_fields=["otp_scret", "otp_secret_created"])
             raise
 
         except Exception as e:
             if "user" in locals() and user is not None:
                 user.otp_secret = None
-                user.otp_secret_created_at = None
-                user.save(update_fields=["otp_secret", "otp_secret_created_at"])
+                user.otp_secret_created = None
+                user.save(update_fields=["otp_secret", "otp_secret_created"])
             raise serializers.ValidationError(f"Password reset failed: {str(e)}")
 
 
