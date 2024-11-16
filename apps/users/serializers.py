@@ -2,6 +2,9 @@ from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_serializer_method
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils import timezone
+from django.utils.crypto import constant_time_compare
+from django.contrib.auth.password_validation import validate_password
 
 from apps.common.email import send_email_template
 from apps.common.utils import OTPUtils
@@ -151,24 +154,36 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
     email = serializers.EmailField(required=True)
 
+    def validate(self, attrs):
+        email = attrs.get("email")
+        if not email:
+            raise serializers.ValidationError("Email must be provided")
+        return attrs
+
     def create(self, validated_data: dict):
         """
         if email code to a user, send an email with a code to reset password
         """
         token = ""
         email = validated_data.get("email")
-        if user := User.objects.filter(email=email).first():
-            code, token = OTPUtils.generate_otp(user)
-            send_email_template(
-                email, "d-45557d1b684442b6aef71ae69d50c495", {email: {"code": code}}
-            )
+        try:
+            if user := User.objects.filter(email=email).first():
+                code, token = OTPUtils.generate_otp(user)
+                user.otp_secret = code
+                user.otp_secret_created_at = timezone.now()
+                user.save(update_fields=["otp_secret", "otp_secret_created_at"])
+                send_email_template(
+                    email, "d-45557d1b684442b6aef71ae69d50c495", {email: {"code": code}}
+                )
+            else:
+                raise serializers.ValidationError("User with this email does not exist")
+        except Exception as e:
+            raise serializers.ValidationError(f"Error sending email: {e}")
 
         return {"token": token}
 
 
 class ResetPasswordSerializer(serializers.Serializer):
-    """ """
-
     token = serializers.CharField(required=True)
     code = serializers.CharField(min_length=6, required=True)
     password = serializers.CharField(min_length=6, required=True)
@@ -182,28 +197,49 @@ class ResetPasswordSerializer(serializers.Serializer):
         code = validated_data.get("code")
         password = validated_data.get("password")
 
-        data = OTPUtils.decode_token(token)
+        try:
+            data = OTPUtils.decode_token(token)
+            if not data or not isinstance(data, dict):
+                raise serializers.ValidationError("Invalid token")
 
-        if not data or not isinstance(data, dict):
-            raise serializers.ValidationError("Invalid token")
+            if not (user := User.objects.filter(id=data.get("user_id")).first()):
+                raise serializers.ValidationError("User does not exist")
 
-        if not (user := User.objects.filter(id=data.get("user_id")).first()):
-            raise serializers.ValidationError("User does not exist")
+            if not constant_time_compare(user.otp_scret, code):
+                raise serializers.ValidationError("Invalid code")
 
-        # validate code
-        if not OTPUtils.verify_otp(code, data["secret"]):
-            raise serializers.ValidationError("Invalid code")
+            if user.otp_secret_created_at  + timezone.timedelta(minutes=5) < timezone.now():
+                raise serializers.ValidationError("otp code has expired")
 
-        # reset password
-        user.set_password(raw_password=password)
-        user.save()
+            validate_password(password, user)
 
-        # send_email_template(user.email, "d-e4bf355645044030af3f6fbb6f360153", \
-        # {user.email: {"username": user.username}})
+            # If we get here, verification was successful
+            user.set_password(raw_password=password)
+            user.otp_scret = None
+            user.otp_secret_created_at = None
+            user.is_verified = True
+            user.save(update_fields=[
+                "password",
+                "otp_scret",
+                "otp_secret_created_at",
+                "is_verified"
+            ])
 
-        return {
-            "email": user.email,
-        }
+            return {"email": user.email}
+
+        except serializers.ValidationError:
+            if "user" in locals() and user is not None:
+                user.otp_secret = None
+                user.otp_secret_created_at  = None
+                user.save(update_fields=["otp_scret", "otp_secret_created_at"])
+            raise
+
+        except Exception as e:
+            if "user" in locals() and user is not None:
+                user.otp_secret = None
+                user.otp_secret_created_at = None
+                user.save(update_fields=["otp_secret", "otp_secret_created_at"])
+            raise serializers.ValidationError(f"Password reset failed: {str(e)}")
 
 
 class ChangePasswordSerializer(serializers.Serializer):
