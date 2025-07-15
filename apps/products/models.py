@@ -33,6 +33,14 @@ class Product(base_models.BaseModel):
             "created_at",
         )
 
+    def save(self, *args, **kwargs):
+        created = not self.pk
+        super().save(*args, **kwargs)
+        if created:
+            from apps.inventory.models import Inventory
+
+            Inventory.objects.create(product=self, quantity=1)
+
     def __str__(self):
         return self.name
 
