@@ -1,4 +1,3 @@
-import time
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -8,12 +7,13 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.cart.models import CartItem, ShoppingCart
+from apps.common.email import send_email_template
 from apps.finance.models import Transaction
 from apps.finance.paystack import PaystackUtils
+from apps.inventory.models import Inventory
 from apps.orders.models import Order, OrderItem
 from apps.orders.serializers import OrderItemSerializer, OrderSerializer
 from apps.users.models import Address, Profile
-from apps.common.email import send_email_template
 
 
 class OrderViewSet(ModelViewSet):
@@ -71,6 +71,15 @@ class OrderViewSet(ModelViewSet):
                 quantity=cart_item.quantity,
                 price=cart_item.price,
             )
+
+            inventory = Inventory.objects.get(product=cart_item.product)
+            if inventory.quantity < cart_item.quantity:
+                return Response(
+                    {"detail": f"Not enough stock for {cart_item.product.name}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            inventory.quantity -= cart_item.quantity
+            inventory.save()
 
         serializer = self.get_serializer(order)  # noqa
 
@@ -141,10 +150,16 @@ class OrderViewSet(ModelViewSet):
                             pass
 
                 email = order.user.email
-                send_email_template(email, "d-f28075a5e4074706b817fe32b6260506", {email: {
-                    "order_id": order.id,
-                    "address": order.delivery_address,
-                }})
+                send_email_template(
+                    email,
+                    "d-f28075a5e4074706b817fe32b6260506",
+                    {
+                        email: {
+                            "order_id": order.id,
+                            "address": order.delivery_address,
+                        }
+                    },
+                )
 
                 return Response(
                     {"detail": "Payment successful"}, status=status.HTTP_200_OK
