@@ -2,13 +2,10 @@ from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_serializer_method
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-<<<<<<< HEAD
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 from django.contrib.auth.password_validation import validate_password
-=======
 import logging
->>>>>>> main
 
 from apps.common.email import send_email_template
 from apps.common.utils import OTPUtils
@@ -173,7 +170,6 @@ class ForgotPasswordSerializer(serializers.Serializer):
         """
         token = ""
         email = validated_data.get("email")
-<<<<<<< HEAD
         try:
             if user := User.objects.filter(email=email).first():
                 code, token = OTPUtils.generate_otp(user)
@@ -188,18 +184,6 @@ class ForgotPasswordSerializer(serializers.Serializer):
         except Exception as e:
             raise serializers.ValidationError(f"Error sending email: {e}")
 
-=======
-        if user := User.objects.filter(email=email).first():
-            code, token = OTPUtils.generate_otp(user)
-
-            try:
-                send_email_template(
-                    email, "d-45557d1b684442b6aef71ae69d50c495", {email: {"code": code}}
-                )
-
-            except Exception as e:
-                logging.error(f"Error sending OTP email: {e}")
->>>>>>> main
 
         return {"token": token}
 
@@ -218,7 +202,6 @@ class ResetPasswordSerializer(serializers.Serializer):
         code = validated_data.get("code")
         password = validated_data.get("password")
 
-<<<<<<< HEAD
         try:
             data = OTPUtils.decode_token(token)
             if not data or not isinstance(data, dict):
@@ -262,34 +245,6 @@ class ResetPasswordSerializer(serializers.Serializer):
                 user.otp_secret_created_at = None
                 user.save(update_fields=["otp_secret", "otp_secret_created_at"])
             raise serializers.ValidationError(f"Password reset failed: {str(e)}")
-=======
-        data = OTPUtils.decode_token(token)
-
-        if not data or not isinstance(data, dict):
-            raise serializers.ValidationError("Invalid token")
-
-        if not (user := User.objects.filter(id=data.get("user_id")).first()):
-            raise serializers.ValidationError("User does not exist")
-
-        # validate code
-        if not OTPUtils.verify_otp(code, data["secret"]):
-            raise serializers.ValidationError("Invalid code")
-
-        # reset password
-        user.set_password(raw_password=password)
-        user.save()
-
-        try:
-            send_email_template(user.email, "d-e4bf355645044030af3f6fbb6f360153",
-                                {user.email: {"username": user.username}})
-
-        except Exception as e:
-            logging.error(f"Error sending password reset confirmation email: {e}")
-
-        return {
-            "email": user.email,
-        }
->>>>>>> main
 
 
 class ChangePasswordSerializer(serializers.Serializer):
