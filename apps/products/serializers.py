@@ -51,9 +51,18 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class FavoriteSerializer(serializers.ModelSerializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     product_name = serializers.CharField(source="product.name", read_only=True)
 
     class Meta:
         model = Favorite
-        fields = ["id", "product", "product_name", "user"]
+        fields = ["id", "product", "product_name"]
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        user = request.user
+
+        if Favorite.objects.filter(user=user, product=validated_data["product"]).exists():
+            raise serializers.ValidationError("Product already added to favorites")
+
+        favorite = Favorite.objects.create(user=user, product=validated_data["product"])
+        return favorite

@@ -9,6 +9,7 @@ from apps.cart.serializers import (
     CartItemSerializer,
     ShoppingCartSerializer,
 )
+from apps.inventory.models import Inventory
 
 
 class ShoppingCartViewSet(ModelViewSet):
@@ -21,7 +22,7 @@ class ShoppingCartViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated:
-            return ShoppingCart.objects.filter(user=self.request.user).select_related(
+            return ShoppingCart.objects.filter(user=self.request.user).prefetch_related(
                 "items__product", "items__product__brand", "items__product__category"
             )
         return ShoppingCart.objects.none()
@@ -46,6 +47,19 @@ class ShoppingCartViewSet(ModelViewSet):
         quantity = serializer.validated_data.get("quantity")
 
         cart = self.get_object()
+
+        try:
+            inventory = Inventory.objects.get(product=product)
+            if inventory.quantity < quantity:
+                return Response(
+                    {"detail": f"Not enough stock for {product.name}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except Inventory.DoesNotExist:
+            return Response(
+                {"detail": f"{product.name} out of stock"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         cart_item, _ = CartItem.objects.get_or_create(cart=cart, product=product)
         cart_item.quantity = quantity

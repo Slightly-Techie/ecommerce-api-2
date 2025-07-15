@@ -12,6 +12,10 @@ class InvitationCreateListView(CreateAPIView, ListAPIView):
     serializer_class = InvitationSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        user = self.request.user
+        return super().get_queryset().filter(inviter=user)
+
     def create(self, request, *args, **kwargs):
         """
         Handle POST requests to create a new Invitation.

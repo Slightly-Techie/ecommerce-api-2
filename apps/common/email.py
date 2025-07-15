@@ -4,12 +4,11 @@ from django.core.mail import EmailMessage
 
 
 def send_email(subject, message, recipient, fail_silently=False):
-    msg = EmailMessage(
+    msg = AnymailMessage(
         subject,
         message,
         from_email=settings.FROM_EMAIL,
         to=[recipient],
-        reply_to=[recipient],
     )
 
     return msg.send(fail_silently=fail_silently)
@@ -27,7 +26,6 @@ def send_email_template(
     msg = AnymailMessage(
         from_email=settings.FROM_EMAIL,
         to=[email],
-        reply_to=[settings.FROM_EMAIL],
     )
     msg.template_id = template_id
 

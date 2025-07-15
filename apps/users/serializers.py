@@ -5,6 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 from django.contrib.auth.password_validation import validate_password
+import logging
 
 from apps.common.email import send_email_template
 from apps.common.utils import OTPUtils
@@ -82,11 +83,14 @@ class SignUpSerializer(serializers.ModelSerializer):
             profile.phone_number = member_data["data"]["phone_number"]
             profile.save()
 
-        send_email_template(
-            email,
-            "d-84ad6c792bf64437bb592b604214806a",
-            {email: {"username": username, "otp": code}},
-        )
+        try:
+            send_email_template(
+                email,
+                "d-84ad6c792bf64437bb592b604214806a",
+                {email: {"username": username, "otp": code}},
+            )
+        except Exception as e:
+            logging.error(f"Error sending OTP email: {e}")
 
         if referral_code:
             try:
@@ -261,11 +265,14 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(raw_password=validated_data.get("new_password"))
         user.save()
 
-        send_email_template(
-            user.email,
-            "d-7989ffbb4f114616846ef7ddff10a965",
-            {user.email: {"username": user.username}},
-        )
+        try:
+            send_email_template(
+                user.email,
+                "d-7989ffbb4f114616846ef7ddff10a965",
+                {user.email: {"username": user.username}},
+            )
+        except Exception as e:
+            logging.error(f"Error sending password change email: {e}")
 
         return {"old_password": "", "new_password": ""}
 

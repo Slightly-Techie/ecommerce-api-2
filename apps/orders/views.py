@@ -7,8 +7,10 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.cart.models import CartItem, ShoppingCart
+from apps.common.email import send_email_template
 from apps.finance.models import Transaction
 from apps.finance.paystack import PaystackUtils
+from apps.inventory.models import Inventory
 from apps.orders.models import Order, OrderItem
 from apps.orders.serializers import OrderItemSerializer, OrderSerializer
 from apps.users.models import Address, Profile
@@ -70,6 +72,15 @@ class OrderViewSet(ModelViewSet):
                 price=cart_item.price,
             )
 
+            inventory = Inventory.objects.get(product=cart_item.product)
+            if inventory.quantity < cart_item.quantity:
+                return Response(
+                    {"detail": f"Not enough stock for {cart_item.product.name}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            inventory.quantity -= cart_item.quantity
+            inventory.save()
+
         serializer = self.get_serializer(order)  # noqa
 
         kobo_amount = int(total_cost * 100)
@@ -113,6 +124,7 @@ class OrderViewSet(ModelViewSet):
             if response["data"]["status"] == "success":
                 order = get_object_or_404(Order, id=reference)
                 order.status = "PC"
+                order.ordered = True
                 order.save()
 
                 Transaction.objects.create(
@@ -136,6 +148,18 @@ class OrderViewSet(ModelViewSet):
 
                         except Profile.DoesNotExist:
                             pass
+
+                email = order.user.email
+                send_email_template(
+                    email,
+                    "d-f28075a5e4074706b817fe32b6260506",
+                    {
+                        email: {
+                            "order_id": order.id,
+                            "address": order.delivery_address,
+                        }
+                    },
+                )
 
                 return Response(
                     {"detail": "Payment successful"}, status=status.HTTP_200_OK

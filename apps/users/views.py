@@ -5,13 +5,14 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.generics import CreateAPIView
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin, UpdateModelMixin
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
+import logging
 
-from apps.common.email import send_email
+from apps.common.email import send_email, send_email_template
 from apps.common.utils import OTPUtils
 
 from .models import Address, Profile, Role
@@ -154,7 +155,7 @@ class ProfileView(ModelViewSet):
     queryset = Profile.objects.all().select_related("user", "role")
     serializer_class = ProfileSerializer
     filterset_fields = ("user", "role")
-    parser_classes = (FormParser, MultiPartParser)
+    parser_classes = (FormParser, MultiPartParser, JSONParser)
 
     http_method_names = [m for m in ModelViewSet.http_method_names if m not in ["put"]]
 
@@ -191,9 +192,16 @@ class EmailVerification(APIView):
         code, _ = OTPUtils.generate_otp(user)
 
         recipient = user.email
+        # subject = "Email Verification Code"
+        # message = f"Your email verification code is {code}"
 
-        subject = "Email Verification Code"
-        message = f"Your email verification code is {code}"
+        if not user.is_verified:
+            # send_email(subject, message, recipient)
+            # return Response("Email Verification Code sent successfully")
+            try:
+                send_email_template(recipient, "d-491be22360794a6782913ffb274e9224", {recipient: {"code": code}})
 
-        send_email(subject, message, recipient)
-        return Response("OK")
+            except Exception as e:
+                logging.error(f"Error sending email verification OTP: {e}")
+
+        return Response("Email already verified")
