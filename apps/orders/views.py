@@ -1,3 +1,4 @@
+import time
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -12,6 +13,7 @@ from apps.finance.paystack import PaystackUtils
 from apps.orders.models import Order, OrderItem
 from apps.orders.serializers import OrderItemSerializer, OrderSerializer
 from apps.users.models import Address, Profile
+from apps.common.email import send_email_template
 
 
 class OrderViewSet(ModelViewSet):
@@ -113,6 +115,7 @@ class OrderViewSet(ModelViewSet):
             if response["data"]["status"] == "success":
                 order = get_object_or_404(Order, id=reference)
                 order.status = "PC"
+                order.ordered = True
                 order.save()
 
                 Transaction.objects.create(
@@ -136,6 +139,12 @@ class OrderViewSet(ModelViewSet):
 
                         except Profile.DoesNotExist:
                             pass
+
+                email = order.user.email
+                send_email_template(email, "d-f28075a5e4074706b817fe32b6260506", {email: {
+                    "order_id": order.id,
+                    "address": order.delivery_address,
+                }})
 
                 return Response(
                     {"detail": "Payment successful"}, status=status.HTTP_200_OK

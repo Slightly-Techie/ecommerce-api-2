@@ -37,7 +37,7 @@ def send_invitation_email(sender, instance, created, **kwargs):
                 {
                     instance.email: {
                         "username": instance.inviter.username,
-                        "referral_code": instance.referral_code,
+                        "referral_code": instance.inviter.username,
                     }
                 },
             )
