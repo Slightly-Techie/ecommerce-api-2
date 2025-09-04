@@ -11,8 +11,12 @@ from apps.common.email import send_email_template
 from apps.finance.models import Transaction
 from apps.finance.paystack import PaystackUtils
 from apps.inventory.models import Inventory
-from apps.orders.models import Order, OrderItem
-from apps.orders.serializers import OrderItemSerializer, OrderSerializer
+from apps.orders.models import Delivery, Order, OrderItem
+from apps.orders.serializers import (
+    DeliverySerializer,
+    OrderItemSerializer,
+    OrderSerializer,
+)
 from apps.users.models import Address, Profile
 
 
@@ -149,6 +153,10 @@ class OrderViewSet(ModelViewSet):
                         except Profile.DoesNotExist:
                             pass
 
+                delivery_instance = Delivery.objects.create(
+                    order=order, tracking_id=order.id, address=order.delivery_address
+                )
+
                 email = order.user.email
                 send_email_template(
                     email,
@@ -157,6 +165,7 @@ class OrderViewSet(ModelViewSet):
                         email: {
                             "order_id": order.id,
                             "address": order.delivery_address,
+                            "tracking_id": delivery_instance.tracking_id,
                         }
                     },
                 )
@@ -192,5 +201,24 @@ class OrderItemViewset(ModelViewSet):
         queryset = self.get_queryset()
         if order_id:
             queryset = self.queryset.filter(order_id=order_id)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class DeliveryViewset(ModelViewSet):
+    queryset = Delivery.objects.all()
+    serializer_class = DeliverySerializer
+
+    http_method_names = [
+        m
+        for m in ModelViewSet.http_method_names
+        if m not in ["put", "patch", "post", "delete"]
+    ]
+
+    def list(self, request, *args, **kwargs):
+        delivery_id = self.request.query_params.get("delivery_id")
+        queryset = self.get_queryset()
+        if delivery_id:
+            queryset = self.queryset.filter(delivery_id=delivery_id)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)

@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.common import models as base_models
@@ -57,3 +60,23 @@ class OrderItem(base_models.BaseModel):
     )
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.IntegerField()
+
+
+def one_week_from_now():
+    return timezone.now() + timedelta(days=7)
+
+
+class Delivery(base_models.BaseModel):
+    class DeliveryType(models.TextChoices):
+        PICKUP = ("P", _("pickup"))
+        COURIER = ("C", _("courier"))
+
+    order = models.OneToOneField(
+        Order, on_delete=models.CASCADE, related_name="delivery_details"
+    )
+    tracking_id = models.CharField(max_length=50, blank=True)
+    delivery_date = models.DateTimeField(default=one_week_from_now)
+    delivery_type = models.CharField(
+        max_length=1, choices=DeliveryType.choices, default=DeliveryType.COURIER
+    )
+    address = models.ForeignKey(usermodels.Address, on_delete=models.CASCADE)
