@@ -185,6 +185,25 @@ class OrderViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @action(detail=False, methods=["get"], url_path="cancel")
+    def cancel_order(self, request):
+        orderID = request.query_params.get("order_id")
+        if not orderID:
+            return Response(
+                {"detail": " No order ID provided"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        print(orderID)
+
+        order = get_object_or_404(Order, id=orderID)
+
+        if order.status in ["PC", "IND", "CP"]:
+            return Response({"detail": "This order cannot be cancelled"})
+
+        order.status = "CN"
+        order.save()
+
+        return Response({"details": "Order successfully cancelled"})
+
 
 class OrderItemViewset(ModelViewSet):
     queryset = OrderItem.objects.all().select_related("order", "product")
