@@ -1,4 +1,3 @@
-import time
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -8,12 +7,17 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.cart.models import CartItem, ShoppingCart
+from apps.common.email import send_email_template
 from apps.finance.models import Transaction
 from apps.finance.paystack import PaystackUtils
-from apps.orders.models import Order, OrderItem
-from apps.orders.serializers import OrderItemSerializer, OrderSerializer
+from apps.inventory.models import Inventory
+from apps.orders.models import Delivery, Order, OrderItem
+from apps.orders.serializers import (
+    DeliverySerializer,
+    OrderItemSerializer,
+    OrderSerializer,
+)
 from apps.users.models import Address, Profile
-from apps.common.email import send_email_template
 
 
 class OrderViewSet(ModelViewSet):
@@ -38,13 +42,13 @@ class OrderViewSet(ModelViewSet):
                 {"detail": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        cart_items = CartItem.objects.filter(cart=cart.id).select_related("product")
+
         shopping_items = cart.items.count()
         if shopping_items == 0:
             return Response(
                 {"detail": "Add items to cart"}, status=status.HTTP_400_BAD_REQUEST
             )
-
-        cart_items = CartItem.objects.filter(cart=cart.id).prefetch_related("product")
 
         total_amount = sum(item.product.price * item.quantity for item in cart_items)
         delivery_cost = 10
@@ -71,6 +75,15 @@ class OrderViewSet(ModelViewSet):
                 quantity=cart_item.quantity,
                 price=cart_item.price,
             )
+
+            inventory = Inventory.objects.get(product=cart_item.product)
+            if inventory.quantity < cart_item.quantity:
+                return Response(
+                    {"detail": f"Not enough stock for {cart_item.product.name}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            inventory.quantity -= cart_item.quantity
+            inventory.save()
 
         serializer = self.get_serializer(order)  # noqa
 
@@ -140,11 +153,22 @@ class OrderViewSet(ModelViewSet):
                         except Profile.DoesNotExist:
                             pass
 
+                delivery_instance = Delivery.objects.create(
+                    order=order, tracking_id=order.id, address=order.delivery_address
+                )
+
                 email = order.user.email
-                send_email_template(email, "d-f28075a5e4074706b817fe32b6260506", {email: {
-                    "order_id": order.id,
-                    "address": order.delivery_address,
-                }})
+                send_email_template(
+                    email,
+                    "d-f28075a5e4074706b817fe32b6260506",
+                    {
+                        email: {
+                            "order_id": order.id,
+                            "address": order.delivery_address,
+                            "tracking_id": delivery_instance.tracking_id,
+                        }
+                    },
+                )
 
                 return Response(
                     {"detail": "Payment successful"}, status=status.HTTP_200_OK
@@ -161,9 +185,28 @@ class OrderViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @action(detail=False, methods=["get"], url_path="cancel")
+    def cancel_order(self, request):
+        orderID = request.query_params.get("order_id")
+        if not orderID:
+            return Response(
+                {"detail": " No order ID provided"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        print(orderID)
+
+        order = get_object_or_404(Order, id=orderID)
+
+        if order.status in ["PC", "IND", "CP"]:
+            return Response({"detail": "This order cannot be cancelled"})
+
+        order.status = "CN"
+        order.save()
+
+        return Response({"details": "Order successfully cancelled"})
+
 
 class OrderItemViewset(ModelViewSet):
-    queryset = OrderItem.objects.all()
+    queryset = OrderItem.objects.all().select_related("order", "product")
     serializer_class = OrderItemSerializer
 
     http_method_names = [
@@ -177,5 +220,24 @@ class OrderItemViewset(ModelViewSet):
         queryset = self.get_queryset()
         if order_id:
             queryset = self.queryset.filter(order_id=order_id)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class DeliveryViewset(ModelViewSet):
+    queryset = Delivery.objects.all()
+    serializer_class = DeliverySerializer
+
+    http_method_names = [
+        m
+        for m in ModelViewSet.http_method_names
+        if m not in ["put", "patch", "post", "delete"]
+    ]
+
+    def list(self, request, *args, **kwargs):
+        delivery_id = self.request.query_params.get("delivery_id")
+        queryset = self.get_queryset()
+        if delivery_id:
+            queryset = self.queryset.filter(delivery_id=delivery_id)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)

@@ -1,8 +1,7 @@
 from django.db import models
 
 from apps.common import models as base_models
-
-from ..products.models import Product
+from apps.products.models import Product
 
 
 class Inventory(base_models.BaseModel):

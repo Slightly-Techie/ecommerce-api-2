@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Order, OrderItem
+from .models import Delivery, Order, OrderItem
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -15,3 +15,16 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = "__all__"
+
+
+class DeliverySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Delivery
+        fields = [
+            "id",
+            "order",
+            "tracking_id",
+            "delivery_date",
+            "delivery_type",
+            "address",
+        ]
